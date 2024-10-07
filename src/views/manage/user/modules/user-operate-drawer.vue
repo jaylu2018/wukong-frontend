@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import { useFormRules, useNaiveForm } from '@/hooks/common/form';
-import { fetchGetAllRoles } from '@/service/api';
 import { $t } from '@/locales';
 import { enableStatusOptions, userGenderOptions } from '@/constants/business';
+import { fetchCreateUser, fetchGetAllRoles, fetchUpdateUser } from '../api/user';
 
 defineOptions({
   name: 'UserOperateDrawer'
 });
 
 interface Props {
-  /** the type of operation */
+  /** 操作类型 */
   operateType: NaiveUI.TableOperateType;
-  /** the edit row data */
+  /** 编辑的数据行 */
   rowData?: Api.SystemManage.User | null;
 }
 
@@ -39,22 +39,25 @@ const title = computed(() => {
   return titles[props.operateType];
 });
 
+const isEditMode = computed(() => props.operateType === 'edit');
+
 type Model = Pick<
   Api.SystemManage.User,
-  'userName' | 'userGender' | 'nickName' | 'userPhone' | 'userEmail' | 'userRoles' | 'status'
+  'userName' | 'password' | 'userGender' | 'nickName' | 'userPhone' | 'userEmail' | 'userRoles' | 'status'
 >;
 
 const model: Model = reactive(createDefaultModel());
 
 function createDefaultModel(): Model {
   return {
-    userName: '',
-    userGender: null,
-    nickName: '',
-    userPhone: '',
-    userEmail: '',
+    userName: 'Test',
+    password: '',
+    userGender: '1',
+    nickName: 'Test',
+    userPhone: '13126890000',
+    userEmail: '2806767@qq.com',
     userRoles: [],
-    status: null
+    status: '1'
   };
 }
 
@@ -65,27 +68,19 @@ const rules: Record<RuleKey, App.Global.FormRule> = {
   status: defaultRequiredRule
 };
 
-/** the enabled role options */
+/** 有效的角色选项 */
 const roleOptions = ref<CommonType.Option<string>[]>([]);
 
 async function getRoleOptions() {
   const { error, data } = await fetchGetAllRoles();
 
-  if (!error) {
-    const options = data.map(item => ({
+  if (!error && data.records) {
+    const options = data.records.map(item => ({
       label: item.roleName,
       value: item.roleCode
     }));
 
-    // the mock data does not have the roleCode, so fill it
-    // if the real request, remove the following code
-    const userRoleOptions = model.userRoles.map(item => ({
-      label: item,
-      value: item
-    }));
-    // end
-
-    roleOptions.value = [...userRoleOptions, ...options];
+    roleOptions.value = [...options];
   }
 }
 
@@ -93,6 +88,7 @@ function handleInitModel() {
   Object.assign(model, createDefaultModel());
 
   if (props.operateType === 'edit' && props.rowData) {
+    // 将后端返回的数据合并到模型中
     Object.assign(model, props.rowData);
   }
 }
@@ -103,10 +99,23 @@ function closeDrawer() {
 
 async function handleSubmit() {
   await validate();
-  // request
-  window.$message?.success($t('common.updateSuccess'));
-  closeDrawer();
-  emit('submitted');
+
+  try {
+    const submitData = { ...model };
+
+    if (props.operateType === 'add') {
+      await fetchCreateUser(submitData);
+      window.$message?.success($t('common.addSuccess'));
+    } else if (props.operateType === 'edit' && props.rowData?.id) {
+      await fetchUpdateUser(props.rowData.id, submitData);
+      window.$message?.success($t('common.updateSuccess'));
+    }
+    closeDrawer();
+    emit('submitted');
+  } catch (error) {
+    console.error('Failed to submit user data:', error);
+    window.$message?.error($t('common.operationFailed'));
+  }
 }
 
 watch(visible, () => {
@@ -123,7 +132,18 @@ watch(visible, () => {
     <NDrawerContent :title="title" :native-scrollbar="false" closable>
       <NForm ref="formRef" :model="model" :rules="rules">
         <NFormItem :label="$t('page.manage.user.userName')" path="userName">
-          <NInput v-model:value="model.userName" :placeholder="$t('page.manage.user.form.userName')" />
+          <NInput
+            v-model:value="model.userName"
+            :placeholder="$t('page.manage.user.form.userName')"
+            :disabled="isEditMode"
+          />
+        </NFormItem>
+        <NFormItem :label="$t('page.manage.user.password')" path="password">
+          <NInput
+            v-model:value="model.password"
+            :type="isEditMode ? 'text' : 'password'"
+            :placeholder="$t('page.manage.user.form.password')"
+          />
         </NFormItem>
         <NFormItem :label="$t('page.manage.user.userGender')" path="userGender">
           <NRadioGroup v-model:value="model.userGender">
@@ -136,7 +156,7 @@ watch(visible, () => {
         <NFormItem :label="$t('page.manage.user.userPhone')" path="userPhone">
           <NInput v-model:value="model.userPhone" :placeholder="$t('page.manage.user.form.userPhone')" />
         </NFormItem>
-        <NFormItem :label="$t('page.manage.user.userEmail')" path="email">
+        <NFormItem :label="$t('page.manage.user.userEmail')" path="userEmail">
           <NInput v-model:value="model.userEmail" :placeholder="$t('page.manage.user.form.userEmail')" />
         </NFormItem>
         <NFormItem :label="$t('page.manage.user.userStatus')" path="status">
@@ -144,7 +164,7 @@ watch(visible, () => {
             <NRadio v-for="item in enableStatusOptions" :key="item.value" :value="item.value" :label="$t(item.label)" />
           </NRadioGroup>
         </NFormItem>
-        <NFormItem :label="$t('page.manage.user.userRole')" path="roles">
+        <NFormItem :label="$t('page.manage.user.userRole')" path="userRoles">
           <NSelect
             v-model:value="model.userRoles"
             multiple

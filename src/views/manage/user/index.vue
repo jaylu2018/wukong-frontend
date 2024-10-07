@@ -1,10 +1,10 @@
 <script setup lang="tsx">
 import { NButton, NPopconfirm, NTag } from 'naive-ui';
-import { fetchGetUserList } from '@/service/api';
 import { $t } from '@/locales';
 import { useAppStore } from '@/store/modules/app';
 import { enableStatusRecord, userGenderRecord } from '@/constants/business';
 import { useTable, useTableOperate } from '@/hooks/common/table';
+import { fetchGetUserList } from './api/user';
 import UserOperateDrawer from './modules/user-operate-drawer.vue';
 import UserSearch from './modules/user-search.vue';
 
@@ -24,16 +24,13 @@ const {
   apiFn: fetchGetUserList,
   showTotal: true,
   apiParams: {
-    current: 1,
+    // current: 1,
     size: 10,
-    // if you want to use the searchParams in Form, you need to define the following properties, and the value is null
-    // the value can not be undefined, otherwise the property in Form will not be reactive
     status: null,
     userName: null,
     userGender: null,
     nickName: null,
-    userPhone: null,
-    userEmail: null
+    userPhone: null
   },
   columns: () => [
     {
@@ -150,17 +147,25 @@ const {
 } = useTableOperate(data, getData);
 
 async function handleBatchDelete() {
-  // request
-  console.log(checkedRowKeys.value);
-
-  onBatchDeleted();
+  try {
+    await fetchBatchDeleteUsers(checkedRowKeys.value as number[]);
+    window.$message?.success($t('common.deleteSuccess'));
+    onBatchDeleted();
+  } catch (error) {
+    console.error('Failed to batch delete users:', error);
+    window.$message?.error($t('common.operationFailed'));
+  }
 }
 
-function handleDelete(id: number) {
-  // request
-  console.log(id);
-
-  onDeleted();
+async function handleDelete(id: number) {
+  try {
+    await fetchDeleteUser(id);
+    window.$message?.success($t('common.deleteSuccess'));
+    onDeleted();
+  } catch (error) {
+    console.error('Failed to delete user:', error);
+    window.$message?.error($t('common.operationFailed'));
+  }
 }
 
 function edit(id: number) {

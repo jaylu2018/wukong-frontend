@@ -23,7 +23,7 @@ const model = defineModel<Api.SystemManage.UserSearchParams>('model', { required
 type RuleKey = Extract<keyof Api.SystemManage.UserSearchParams, 'userEmail' | 'userPhone'>;
 
 const rules = computed<Record<RuleKey, App.Global.FormRule>>(() => {
-  const { patternRules } = useFormRules(); // inside computed to make locale reactive
+  const { patternRules } = useFormRules();
 
   return {
     userEmail: patternRules.email,

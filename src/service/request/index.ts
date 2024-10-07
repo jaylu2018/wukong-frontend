@@ -20,6 +20,7 @@ export const request = createFlatRequest<App.Service.Response, RequestInstanceSt
   {
     async onRequest(config) {
       const Authorization = getAuthorization();
+      console.log(Authorization);
       Object.assign(config.headers, { Authorization });
 
       return config;
